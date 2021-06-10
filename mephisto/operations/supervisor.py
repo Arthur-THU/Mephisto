@@ -465,9 +465,11 @@ class Supervisor:
                 assignment = unit.get_assignment()
                 agents = assignment.get_agents()
                 if None in agents:
+                    agent.lrz_role = "seeker"
                     agent.update_status(AgentState.STATUS_WAITING)
                     return  # need to wait for all agents to be here to launch
 
+                agent.lrz_role = "recommender"
                 # Launch the backend for this assignment
                 agent_infos = [self.agents[a.db_id] for a in agents if a is not None]
 

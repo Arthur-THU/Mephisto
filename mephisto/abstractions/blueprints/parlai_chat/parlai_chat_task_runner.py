@@ -7,6 +7,9 @@
 from mephisto.abstractions.blueprint import TaskRunner
 from mephisto.data_model.agent import Agent, OnboardingAgent
 import time
+import copy
+import json
+import random
 
 try:
     from parlai.core.agents import Agent as ParlAIAgent
@@ -141,6 +144,15 @@ class ParlAIChatTaskRunner(TaskRunner):
         world_params = self.parlai_world_module.get_world_params()
         self.is_concurrent = world_params["agent_count"] > 1
         self.id_to_worlds: Dict[str, Any] = {}
+        data_dir_path = os.path.expanduser(
+            args.blueprint.data_dir
+        )
+        seeker_file_path = os.path.join(data_dir_path, "all_seeker_info.json")
+        recommender_file_path = os.path.join(data_dir_path, "all_recommender_info.json")
+        with open(seeker_file_path) as f:
+            self.seeker_profiles = json.load(f)
+        with open(recommender_file_path) as f:
+            self.recommender_infos= json.load(f)
 
     def get_init_data_for_agent(self, agent: "Agent") -> Dict[str, Any]:
         """
@@ -153,8 +165,16 @@ class ParlAIChatTaskRunner(TaskRunner):
         else:
             assignment = agent.get_unit().get_assignment()
             assignment_data = self.get_data_for_assignment(assignment)
-            agent.state.set_init_state(assignment_data.shared)
+            data_for_agent = copy.deepcopy(assignment_data.shared)
+            data_for_agent["role"] = agent.lrz_role
+            seeker_profile_index = random.randint(0, len(self.seeker_profiles) - 1)
+            recommender_info_index = random.randint(0, len(self.recommender_infos) - 1)
+            worker_info = {"seeker_profile": self.seeker_profiles[seeker_profile_index],
+                            "recommender_info": self.recommender_infos[recommender_info_index]}
+            data_for_agent["worker_info"] = worker_info
+            agent.state.set_init_state(data_for_agent)
             new_state = agent.state.get_init_state()
+            # print("new_state: {}".format(new_state))
             assert new_state is not None, "Recently initialized state still None"
             return new_state
 

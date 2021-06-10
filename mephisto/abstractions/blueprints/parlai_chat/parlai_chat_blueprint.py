@@ -118,6 +118,10 @@ class ParlAIChatBlueprintArgs(BlueprintArgs):
         default=MISSING,
         metadata={"help": "Optional path to jsonl file containing task context"},
     )
+    data_dir: str = field(
+        default=MISSING,
+        metadata={"help": "Optional path to dir of data files"},
+    )
     num_conversations: int = field(
         default=MISSING,
         metadata={
