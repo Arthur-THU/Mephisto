@@ -118,6 +118,10 @@ class ParlAIChatBlueprintArgs(BlueprintArgs):
         default=MISSING,
         metadata={"help": "Optional path to jsonl file containing task context"},
     )
+    data_dir: str = field(
+        default=MISSING,
+        metadata={"help": "Optional path to dir of data files"},
+    )
     num_conversations: int = field(
         default=MISSING,
         metadata={
@@ -128,7 +132,7 @@ class ParlAIChatBlueprintArgs(BlueprintArgs):
 
 @register_mephisto_abstraction()
 class ParlAIChatBlueprint(Blueprint, OnboardingRequired):
-    """Blueprint for a task that runs a parlai chat """
+    """Blueprint for a task that runs a parlai chat"""
 
     AgentStateClass: ClassVar[Type["AgentState"]] = ParlAIChatAgentState
     OnboardingAgentStateClass: ClassVar[Type["AgentState"]] = ParlAIChatAgentState

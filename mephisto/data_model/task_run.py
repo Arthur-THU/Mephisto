@@ -11,6 +11,7 @@ import json
 from mephisto.data_model.requester import Requester
 from mephisto.data_model.constants.assignment_state import AssignmentState
 from mephisto.data_model.task_config import TaskConfig
+from mephisto.data_model.db_backed_meta import MephistoDBBackedMeta
 from mephisto.operations.utils import get_dir_for_run
 
 from omegaconf import OmegaConf
@@ -32,7 +33,7 @@ from mephisto.operations.logger_core import get_logger
 logger = get_logger(name=__name__)
 
 
-class TaskRun:
+class TaskRun(metaclass=MephistoDBBackedMeta):
     """
     This class tracks an individual run of a specific task, and handles state management
     for the set of assignments within
@@ -128,6 +129,7 @@ class TaskRun:
             if not any(is_self_set):
                 units += unit_set
         valid_units = [u for u in units if u.get_status() == AssignmentState.LAUNCHED]
+        logger.debug(f"Found {len(valid_units)} available units")
 
         # Should load cached blueprint for SharedTaskState
         blueprint = self.get_blueprint()
@@ -137,6 +139,7 @@ class TaskRun:
             if blueprint.shared_state.worker_can_do_unit(worker, u)
         ]
 
+        logger.debug(f"This worker is qualified for {len(ret_units)} unit.")
         logger.debug(f"Found {ret_units[:3]} for {worker}.")
         return ret_units
 
@@ -255,7 +258,7 @@ class TaskRun:
         }
 
     def update_completion_progress(self, task_launcher=None, status=None) -> None:
-        """ Flag the task run that the assignments' generator has finished """
+        """Flag the task run that the assignments' generator has finished"""
         if task_launcher:
             if task_launcher.get_assignments_are_all_created():
                 self.assignments_generator_done = True

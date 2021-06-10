@@ -11,6 +11,7 @@ from uuid import uuid4
 from abc import ABC, abstractmethod, abstractstaticmethod
 from mephisto.abstractions.blueprint import AgentState
 from mephisto.data_model.worker import Worker
+from mephisto.data_model.db_backed_meta import MephistoDBBackedABCMeta
 from mephisto.data_model.exceptions import (
     AgentReturnedError,
     AgentDisconnectedError,
@@ -33,7 +34,7 @@ from mephisto.operations.logger_core import get_logger
 logger = get_logger(name=__name__)
 
 
-class Agent(ABC):
+class Agent(metaclass=MephistoDBBackedABCMeta):
     """
     This class encompasses a worker as they are working on an individual assignment.
     It maintains details for the current task at hand such as start and end time,
@@ -73,8 +74,14 @@ class Agent(ABC):
         self._task_run: Optional["TaskRun"] = None
         self._task: Optional["Task"] = None
 
-        # Follow-up initialization
-        self.state = AgentState(self)  # type: ignore
+        # Follow-up initialization is deferred
+        self._state = None  # type: ignore
+
+    @property
+    def state(self) -> "AgentState":
+        if self._state is None:
+            self._state = AgentState(self)
+        return self._state
 
     def __new__(
         cls, db: "MephistoDB", db_id: str, row: Optional[Mapping[str, Any]] = None
