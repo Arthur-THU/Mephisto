@@ -10,8 +10,8 @@ import React from "react";
 import ReactDOM from "react-dom";
 import "bootstrap-chat/styles.css";
 import { FormGroup, FormControl, Button, Radio } from "react-bootstrap";
-
 import { ChatApp, DefaultTaskDescription, INPUT_MODE } from "bootstrap-chat";
+import rec_list from "/home/mawenchang/Mephisto/examples/parlai_chat_task_demo/custom_input_and_messages/data.js";
 
 /*
 This example modifies the default parlai_chat example to demonstrate
@@ -28,14 +28,16 @@ This example is for illustrative purposes only and has not been tested
 with production usage.
 */
 
+
 function ChatMessage({ isSelf, idx, agentName, message = "", onRadioChange }) {
   const floatToSide = isSelf ? "right" : "left";
   const alertStyle = isSelf ? "alert-info" : "alert-warning";
 
   const handleChange = (e) => {
-    onRadioChange(e.currentTarget.value);
+    onRadioChange(e.currentTarget.value, e.currentTarget.name);
   };
 
+  
   return (
     <div className="row" style={{ marginLeft: "0", marginRight: "0" }}>
       <div
@@ -50,19 +52,25 @@ function ChatMessage({ isSelf, idx, agentName, message = "", onRadioChange }) {
           <FormGroup>
             <Radio
               name={"radio" + idx}
-              value={1}
-              inline
+              value={"Pos"}
               onChange={handleChange}
             >
-              1
+              Positive
             </Radio>{" "}
             <Radio
               name={"radio" + idx}
-              value={2}
-              inline
+              value={"Neg"}
               onChange={handleChange}
             >
-              2
+              Negative
+            </Radio>{" "}
+
+            <Radio
+              name={"radio" + idx}
+              value={"None"}
+              onChange={handleChange}
+            >
+              None
             </Radio>{" "}
           </FormGroup>
         )}
@@ -100,16 +108,74 @@ function RenderChatMessage({
   );
 }
 
+function displayDate(){
+	document.getElementById("demo").innerHTML=Date();
+}
+
 function MainApp() {
   const [messages, setMessages] = React.useState([]);
   const [chatAnnotations, setChatAnnotation] = React.useReducer(
     (state, action) => {
-      return { ...state, ...{ [action.index]: action.value } };
+      return { ...state, ...{ [action.index]: [action.value, action.movidx]} };
     },
     {}
   );
 
+  const [turnMovies, setTurnMovies] = React.useReducer((state,action)=>{
+    var tmp= [...state];
+    if(action.idx==tmp.length)
+    {
+      tmp.push([]);
+    }
+    tmp[action.idx-1].push(action.name);
+    return tmp;
+  },[]);
+
   const lastMessageAnnotation = chatAnnotations[messages.length - 1];
+
+  const getSearchResult = React.useCallback(() => {
+    var show =document.getElementById('show');
+    var val = document.getElementById('val');
+    show.style.display = 'block';
+
+    var str = '';
+    for(let i = 0; i < rec_list.length; i++)
+    {
+        if(rec_list[i].indexOf(val.value) != -1)
+        {
+          // alert(array[i])
+          str += "<li>"+rec_list[i]+"</li>";
+        }
+            
+
+    }
+    if(!val.value || !str)
+        show.innerHTML = "<ul><li>no movie found...</li></ul>";
+    else
+        show.innerHTML = "<ul>"+str+"</ul>";
+
+    var arrayList = show.getElementsByTagName("li");
+    for(let i = 0; i < arrayList.length; i++)
+    {
+        arrayList[i].addEventListener('click',function(){
+            alert(arrayList[i].innerText)
+        });
+    }   
+  }, []);
+
+  const onBlurEffect = React.useCallback(() => {
+    var val = document.getElementById('val');
+    var show = document.getElementById('show');
+    var t = 5;
+    setInterval(()=>{
+        t--;
+        if(t==0)
+        {
+            show.style.display = 'none';
+            val.value = "";
+        }
+    },(1000))
+  },[])
 
   return (
     <ChatApp
@@ -163,8 +229,8 @@ function MainApp() {
           appContext={appContext}
           idx={idx}
           key={message.message_id + "-" + idx}
-          onRadioChange={(val) => {
-            setChatAnnotation({ index: idx, value: val });
+          onRadioChange={(val,mov) => {
+            setChatAnnotation({ index: idx, value: val, movidx: mov});
           }}
         />
       )}
@@ -173,17 +239,42 @@ function MainApp() {
           chatTitle={taskConfig.chat_title}
           taskDescriptionHtml={taskConfig.task_description}
         >
-          <h2>This is a custom Task Description loaded from a custom bundle</h2>
-          <p>
-            It has the ability to do a number of things, like directly access
-            the contents of task data, view the number of messages so far, and
-            pretty much anything you make like. We're also able to control other
-            components as well, as in this example we've made it so that if you
-            click a message, it will alert with that message idx.
-          </p>
-          <p>The regular task description content will now appear below:</p>
+
+        <p>Search and select the movies to recommend here:</p>
+
+        <style>
+          {`
+              ul{
+                list-style: none;
+                margin:0px;
+                padding:0px;
+              }
+              li{
+                border:black 1px solid;
+                width:250px;
+                margin:0px;
+                padding:0px;
+              }
+              input{
+                width:250px;
+              }`
+          }
+        </style>
+        <div className="box" style={{zIndex:100,backgroundColor:'white',position:'absolute'}}>
+          <div className="search">
+            <input type="text"
+            id="val"
+            placeholder="Search movies to recommend..." 
+            onKeyUp={()=>getSearchResult()}
+            onBlur={()=>onBlurEffect()}/>           
+          </div>
+          <div className="show" id = "show">
+          </div>
+        </div>
         </DefaultTaskDescription>
-      )}
+      )
+      
+      }
     />
   );
 }
@@ -195,7 +286,7 @@ function CustomTextResponse({
   lastMessageAnnotation,
 }) {
   const [textValue, setTextValue] = React.useState(
-    !lastMessageAnnotation ? "" : lastMessageAnnotation + " - "
+    !lastMessageAnnotation? "" : lastMessageAnnotation[0] + " - " +  lastMessageAnnotation[1]
   );
   const [sending, setSending] = React.useState(false);
 
