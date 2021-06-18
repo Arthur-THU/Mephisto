@@ -3,10 +3,10 @@ mephisto:
   blueprint:
     custom_source_dir: ${task_dir}/neg_crs
     data_dir: ${task_dir}
-    num_conversations: 5
+    num_conversations: 1
   task:
-    task_name: parlai-chat-example
-    task_title: "Conversational Recommendation"
+    task_name: Emotional Conversational Recommendation
+    task_title: "Emotional Conversational Recommendation"
     task_description: >
       This is a conversation between a seeker and a recommender.
     task_reward: 0.3

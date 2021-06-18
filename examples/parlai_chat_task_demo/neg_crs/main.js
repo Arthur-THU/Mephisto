@@ -6,20 +6,93 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-import React, { useState } from 'react';
+import React from "react";
 import ReactDOM from "react-dom";
 import "bootstrap-chat/styles.css";
-import "./style.css";
+import { FormGroup, FormControl, Button, Radio} from "react-bootstrap";
+import { ChatApp, DefaultTaskDescription, INPUT_MODE } from "bootstrap-chat";
+import rec_list from "/home/mawenchang/Mephisto/examples/parlai_chat_task_demo/custom_input_and_messages/data.js";
 
-import { ChatApp, ChatMessage, DefaultTaskDescription } from "bootstrap-chat";
+/*
+This example modifies the default parlai_chat example to demonstrate
+how one can override the default visual implementations for the
+chat message bubble and the response input bar, while coordinating
+behavior between them with global state.
 
-function RenderChatMessage({ message, mephistoContext, appContext, idx }) {
+In this example we add a radio button group to each received chat message.
+Additionally, we require the user to make a selection for the most
+recently received chat message, before they can submit their own message
+by modifying the input bar code.
+
+This example is for illustrative purposes only and has not been tested
+with production usage.
+*/
+
+
+function ChatMessage({ isSelf, idx, agentName, message = "", onRadioChange }) {
+  const floatToSide = isSelf ? "right" : "left";
+  const alertStyle = isSelf ? "alert-info" : "alert-warning";
+
+  const handleChange = (e) => {
+    onRadioChange(e.currentTarget.value, e.currentTarget.name);
+  };
+
+  
+  return (
+    <div className="row" style={{ marginLeft: "0", marginRight: "0" }}>
+      <div
+        className={"alert message " + alertStyle}
+        role="alert"
+        style={{ float: floatToSide }}
+      >
+        <span style={{ fontSize: "16px", whiteSpace: "pre-wrap" }}>
+          <b>{agentName}</b>: {message}
+        </span>
+        {isSelf ? null : (
+          <FormGroup>
+            <Radio
+              name={"radio" + idx}
+              value={"Pos"}
+              onChange={handleChange}
+            >
+              Positive
+            </Radio>{" "}
+            <Radio
+              name={"radio" + idx}
+              value={"Neg"}
+              onChange={handleChange}
+            >
+              Negative
+            </Radio>{" "}
+
+            <Radio
+              name={"radio" + idx}
+              value={"None"}
+              onChange={handleChange}
+            >
+              None
+            </Radio>{" "}
+          </FormGroup>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RenderChatMessage({
+  message,
+  mephistoContext,
+  appContext,
+  idx,
+  onRadioChange,
+}) {
   const { agentId } = mephistoContext;
   const { currentAgentNames } = appContext.taskContext;
 
   return (
     <div>
       <ChatMessage
+        idx={idx}
         isSelf={message.id === agentId || message.id in currentAgentNames}
         agentName={
           message.id in currentAgentNames
@@ -29,8 +102,86 @@ function RenderChatMessage({ message, mephistoContext, appContext, idx }) {
         message={message.text}
         taskData={message.task_data}
         messageId={message.message_id}
+        onRadioChange={onRadioChange}
       />
     </div>
+  );
+}
+
+
+function SearchBar({onClick}) {
+
+  const getSearchResult = React.useCallback(() => {
+    var show =document.getElementById('show');
+    var val = document.getElementById('val');
+    show.style.display = 'block';
+
+    var str = '';
+    for(let i = 0; i < rec_list.length; i++)
+    {
+        if(rec_list[i].indexOf(val.value) != -1)
+        {
+          // alert(array[i])
+          str += "<li>"+rec_list[i]+"</li>";
+        }
+            
+
+    }
+    if(!val.value || !str)
+        show.innerHTML = "<ul><li>no movie found...</li></ul>";
+    else
+        show.innerHTML = "<ul>"+str+"</ul>";
+
+    var arrayList = show.getElementsByTagName("li");
+    for(let i = 0; i < arrayList.length; i++)
+    {
+        arrayList[i].addEventListener('click',function(){
+            onClick(arrayList[i].innerText,"add")
+        });
+    }   
+  }, []);
+
+  const onBlurEffect = React.useCallback(() => {
+    var val = document.getElementById('val');
+    var show = document.getElementById('show');
+    val.value = "";
+    show.style.display = 'none';
+  },[])
+
+  
+  return (
+      <div>
+        <p>Search and select the movies to recommend here:</p>
+        <style>
+          {`
+              ul{
+                list-style: none;
+                margin:0px;
+                padding:0px;
+              }
+              li{
+                border:black 1px solid;
+                width:250px;
+                margin:0px;
+                padding:0px;
+              }
+              input{
+                width:250px;
+              }`
+          }
+        </style>
+        <div className="box" style={{zIndex:100,backgroundColor:'white',position:'absolute'}}>
+          <div className="search">
+            <input type="text"
+            id="val"
+            placeholder="Search movies to recommend..." 
+            onKeyUp={()=>getSearchResult()}
+            onBlur={()=>onBlurEffect()}/>           
+          </div>
+          <div className="show" id = "show">
+          </div>
+        </div>
+      </div>
   );
 }
 
@@ -90,7 +241,7 @@ function RenderRecommenderInfo({ recommender_info }) {
       return <div>please select a genre</div>
     }
   }
-  const [optionValue, setOptionValue] = useState("Select a genre")
+  const [optionValue, setOptionValue] = React.useState("Select a genre")
   const handleSelect = (e) => {
     setOptionValue(e.target.value);
   }
@@ -127,9 +278,117 @@ function RenderRecommenderInfo({ recommender_info }) {
   )
 }
 
+
+
 function MainApp() {
+  const [messages, setMessages] = React.useState([]);
+  const [chatAnnotations, setChatAnnotation] = React.useReducer(
+    (state, action) => {
+      return { ...state, ...{ [action.index]: [action.value, action.movidx]} };
+    },
+    {}
+  );
+  const lastMessageAnnotation = chatAnnotations[messages.length - 1];
+  const message_len=messages.length;
+
+  const [turnMovies, setTurnMovies] = React.useReducer((state,action)=>{
+    var tmp= [...state];
+    while(message_len>=tmp.length)
+    {
+      tmp.push([]);
+    }
+    console.log(tmp);
+    console.log(message_len);
+    if (action.act=="add")
+    {
+      var flag=0;
+      for(let i = 0; i < tmp[message_len].length; i++)
+      {
+        if(tmp[message_len][i]==action.name)
+        {
+          flag=1;
+          break;
+        }
+      }
+      if (flag==0)
+      {
+        tmp[message_len].push(action.name);
+      }
+    }
+    else
+    {
+      tmp[message_len].forEach(function(item, index, arr) {
+        if(item == action.name) {
+            arr.splice(index, 1);
+        }
+      });
+    }
+
+    // var show = document.getElementById('selected');
+    // var str = '';
+    // for(let i = 0; i <  tmp[action.idx].length; i++)
+    // {
+    //       // alert(array[i])
+    //       str += "<li>"+tmp[action.idx][i]+"</li>";
+    // }
+    // if(str=='')
+    //     show.innerHTML = "<p>no movie selected...</p>";
+    // else
+    //     show.innerHTML ="<ul>"+str+"</ul>";
+
+    return tmp;
+  },[]);
+
+ 
+
   return (
     <ChatApp
+      onMessagesChange={(messages) => {
+        setMessages(messages);
+        console.log(messages);
+      }}
+      /*
+        You can also use renderTextResponse below, which allows you
+        to modify the input bar while keeping additional default
+        functionality such as the ability to trigger custom forms
+        and a done state.
+        Or you can use renderResponse for more flexibility and implement
+        those states yourself, as shown below with the done state:
+      */
+      renderResponse={({ onMessageSend, inputMode, appContext }) =>
+        inputMode === INPUT_MODE.DONE ? (
+          <div className="response-type-module">
+            <div className="response-bar">
+              <h3>Thanks for completing the task!</h3>
+              <button
+                id="done-button"
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={() => appContext.onTaskComplete()}
+              >
+                <span
+                  className="glyphicon glyphicon-ok-circle"
+                  aria-hidden="true"
+                />{" "}
+                Done with this HIT
+              </button>
+            </div>
+          </div>
+        ) : (
+          <CustomTextResponse
+            onMessageSend={onMessageSend}
+            active={inputMode === INPUT_MODE.READY_FOR_INPUT}
+            messages={messages}
+            key={lastMessageAnnotation}
+            isLastMessageAnnotated={
+              messages.length === 0 || lastMessageAnnotation !== undefined
+            }
+            lastMessageAnnotation={lastMessageAnnotation}
+          />
+        )
+      }
+
+      
       renderMessage={({ message, idx, mephistoContext, appContext }) => (
         <RenderChatMessage
           message={message}
@@ -137,29 +396,117 @@ function MainApp() {
           appContext={appContext}
           idx={idx}
           key={message.message_id + "-" + idx}
+          onRadioChange={(val,mov) => {
+            setChatAnnotation({ index: idx, value: val, movidx: mov});
+          }}
         />
       )}
-      renderSidePane={({ mephistoContext: { taskConfig, agentId, initialTaskData }, appContext: { taskContext } }) => {
-        return (
-          <div>
-            {/* <DefaultTaskDescription
-              chatTitle={taskConfig.chat_title}
-              taskDescriptionHtml={taskConfig.task_description}
-            >
-            </DefaultTaskDescription> */}
-            <h1>{taskConfig.chat_title}</h1>
-            {/* <h2> Your agent id: {agentId}</h2>
-            <h2> taskContext: {JSON.stringify(taskContext)}</h2>
-            {/* <h2> taskConfig: {JSON.stringify(taskConfig)}</h2>
-          <h2> initialTaskData: {JSON.stringify(initialTaskData)}</h2> */}
-            <h2> Your role: {initialTaskData.task_data.role}</h2>
-            {initialTaskData.task_data.role === "seeker" ?
-              RenderSeekerInfo(initialTaskData.task_data.worker_info.seeker_profile) : <RenderRecommenderInfo recommender_info={initialTaskData.task_data.worker_info.recommender_info} />}
-          </div>
-        )
-      }
+      renderSidePane={({ mephistoContext: { taskConfig,agentId, initialTaskData } , appContext: { taskContext } }) => (
+        // <DefaultTaskDescription
+        //   chatTitle={taskConfig.chat_title}
+        //   taskDescriptionHtml={taskConfig.task_description}
+        // >
+        // </DefaultTaskDescription>
+        <div>
+          <h1>{taskConfig.chat_title}</h1>
+          <p><b>Selected Movies</b>(double click on movie names to remove):</p>
+          <ul>
+              {message_len>=turnMovies.length || turnMovies[message_len].length===0 ? "No Movies Selected." : turnMovies[message_len].map((item,index)=>{ return <li
+              onDoubleClick={()=>{setTurnMovies({act:"delete",name:item,idx:message_len})}} 
+              key={index}>${item}$</li>})}
+          </ul>
+          <SearchBar
+            onClick={(val,op) => {
+              setTurnMovies({act:op,name:val})
+            }}
+          />
+          <br />
+          <br />
+          <br />
+          
+          <h2> Your role: {initialTaskData.task_data.role}</h2>
+          {initialTaskData.task_data.role === "seeker" ?
+            RenderSeekerInfo(initialTaskData.task_data.worker_info.seeker_profile) : <RenderRecommenderInfo recommender_info={initialTaskData.task_data.worker_info.recommender_info} />}
+        </div>
+      )
+      
       }
     />
+  );
+}
+
+function CustomTextResponse({
+  onMessageSend,
+  active,
+  isLastMessageAnnotated,
+  lastMessageAnnotation,
+}) {
+  const [textValue, setTextValue] = React.useState(
+    !lastMessageAnnotation? "" : lastMessageAnnotation[0] + " - " +  lastMessageAnnotation[1]
+  );
+  const [sending, setSending] = React.useState(false);
+
+  const annotationNeeded = active && !isLastMessageAnnotated;
+  active = active && isLastMessageAnnotated;
+
+  const inputRef = React.useRef();
+
+  React.useEffect(() => {
+    if (active && inputRef.current && inputRef.current.focus) {
+      inputRef.current.focus();
+    }
+  }, [active]);
+
+  const tryMessageSend = React.useCallback(() => {
+    if (textValue !== "" && active && !sending) {
+      setSending(true);
+      onMessageSend({ text: textValue, task_data: {} }).then(() => {
+        setTextValue("");
+        setSending(false);
+      });
+    }
+  }, [textValue, active, sending, onMessageSend]);
+
+  const handleKeyPress = React.useCallback(
+    (e) => {
+      if (e.key === "Enter") {
+        tryMessageSend();
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+      }
+    },
+    [tryMessageSend]
+  );
+
+  return (
+    <div className="response-type-module">
+      <div className="response-bar">
+        <FormControl
+          type="text"
+          className="response-text-input"
+          inputRef={(ref) => {
+            inputRef.current = ref;
+          }}
+          value={textValue}
+          placeholder={
+            annotationNeeded
+              ? "Please annotate the last message before you can continue"
+              : "Enter your message here..."
+          }
+          onKeyPress={(e) => handleKeyPress(e)}
+          onChange={(e) => setTextValue(e.target.value)}
+          disabled={!active || sending}
+        />
+        <Button
+          className="btn btn-primary submit-response"
+          id="id_send_msg_button"
+          disabled={textValue === "" || !active || sending}
+          onClick={() => tryMessageSend()}
+        >
+          Send
+        </Button>
+      </div>
+    </div>
   );
 }
 
