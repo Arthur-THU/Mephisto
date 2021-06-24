@@ -11,7 +11,7 @@ import ReactDOM from "react-dom";
 import "bootstrap-chat/styles.css";
 import { FormGroup, FormControl, Button, Radio} from "react-bootstrap";
 import { ChatApp, DefaultTaskDescription, INPUT_MODE } from "bootstrap-chat";
-import rec_list from "/home/mawenchang/Mephisto/examples/parlai_chat_task_demo/custom_input_and_messages/data.js";
+import rec_list from "/home/mawenchang/Mephisto/examples/parlai_chat_task_demo/neg_crs/data.js";
 
 /*
 This example modifies the default parlai_chat example to demonstrate
@@ -355,7 +355,7 @@ function MainApp() {
         Or you can use renderResponse for more flexibility and implement
         those states yourself, as shown below with the done state:
       */
-      renderResponse={({ onMessageSend, inputMode, appContext }) =>
+      renderTextResponse={({ onMessageSend, inputMode, appContext }) =>
         inputMode === INPUT_MODE.DONE ? (
           <div className="response-type-module">
             <div className="response-bar">

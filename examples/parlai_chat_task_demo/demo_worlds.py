@@ -39,7 +39,7 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
         self.agents = agents
         self.acts = [None] * len(agents)
         self.episodeDone = False
-        self.max_turns = opt.get("max_turns", 15)
+        self.max_turns = opt.get("max_turns", 2)
         self.current_turns = 0
         self.send_task_data = opt.get("send_task_data", False)
         self.opt = opt
@@ -54,63 +54,74 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
         """
         acts = self.acts
         self.current_turns += 1
-        for index, agent in enumerate(self.agents):
-            try:
-                acts[index] = agent.act(timeout=self.opt["turn_timeout"])
-                if self.send_task_data:
-                    acts[index].force_set(
-                        "task_data",
-                        {
-                            "last_acting_agent": agent.agent_id,
-                            "current_dialogue_turn": self.current_turns,
-                            "utterance_count": self.current_turns + index,
-                        },
-                    )
-            except TypeError:
-                acts[index] = agent.act()  # not MTurkAgent
-            if acts[index]["episode_done"]:
-                self.episodeDone = True
-            for other_agent in self.agents:
-                if other_agent != agent:
-                    other_agent.observe(validate(acts[index]))
-        if self.current_turns >= self.max_turns:
-            self.episodeDone = True
+        if self.current_turns != self.max_turns:
+            for index, agent in enumerate(self.agents):
+                try:
+                    acts[index] = agent.act(timeout=self.opt["turn_timeout"])
+                    if self.send_task_data:
+                        acts[index].force_set(
+                            "task_data",
+                            {
+                                "last_acting_agent": agent.agent_id,
+                                "current_dialogue_turn": self.current_turns,
+                                "utterance_count": self.current_turns + index,
+                            },
+                        )
+                except TypeError:
+                    acts[index] = agent.act()  # not MTurkAgent
+                
+                print("---------------------------------------------")
+                print("Current Turn:",self.current_turns)
+                print("Agent ",index,":",acts[index])
+                print("---------------------------------------------")
+                if acts[index]["episode_done"]:
+                    self.episodeDone = True
+                for other_agent in self.agents:
+                    if other_agent != agent:
+                        other_agent.observe(validate(acts[index]))
+        else:
+            #self.episodeDone = True
             for agent in self.agents:
                 agent.observe(
                     {
                         "id": "Coordinator",
-                        "text": "Please fill out the form to complete the chat:",
+                        "text": "Please check whether the conversation can end:",
                         "task_data": {
                             "respond_with_form": [
                                 {
                                     "type": "choices",
-                                    "question": "How much did you enjoy talking to this user?",
+                                    "question": "End conversation?",
                                     "choices": [
-                                        "Not at all",
-                                        "A little",
-                                        "Somewhat",
-                                        "A lot",
+                                        "yes",
+                                        "no",
                                     ],
                                 },
-                                {
-                                    "type": "choices",
-                                    "question": "Do you think this user is a bot or a human?",
-                                    "choices": [
-                                        "Definitely a bot",
-                                        "Probably a bot",
-                                        "Probably a human",
-                                        "Definitely a human",
-                                    ],
-                                },
-                                {"type": "text", "question": "Enter any comment here"},
+                                # {
+                                #     "type": "choices",
+                                #     "question": "Do you think this user is a bot or a human?",
+                                #     "choices": [
+                                #         "Definitely a bot",
+                                #         "Probably a bot",
+                                #         "Probably a human",
+                                #         "Definitely a human",
+                                #     ],
+                                # },
+                                # {"type": "text", "question": "Enter any comment here"},
                             ]
                         },
                     }
                 )
                 agent.act()  # Request a response
+            all_results=[]
             for agent in self.agents:  # Ensure you get the response
                 form_result = agent.act(timeout=self.opt["turn_timeout"])
-                print(form_result)
+                all_results.append(form_result['task_data']['form_responses'][0]['response'])
+            flag=0
+            for item in all_results:
+                if item=="no":
+                    flag=1
+            if flag==0:
+                self.episodeDone = True
 
     def prep_save_data(self, agent):
         """Process and return any additional data from this world you may want to store"""
